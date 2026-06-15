@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE DOM-SCRAPER · URL-to-Granular Synthesis Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#7AC2EC;            /* page gradient (light blue) */
+    --bg-2:#A8DDF2;
+    --glass-1:rgba(22,57,120,.90);   /* deep blue glass panel */
+    --glass-2:rgba(44,108,191,.78);
+    --inset:rgba(255,255,255,.06);   /* translucent sub-card fill */
+    --edge:rgba(255,255,255,.16);    /* glass borders / top highlight */
+    --edge-soft:rgba(255,255,255,.10);
+    --text:#ECF5FF;
+    --muted:#A7C6E8;
+    --signal:#3FA7FF;          /* bright azure for active/run */
+    --signal-2:#7FD0FF;
+    --live-accent:#5BB6FF;     /* default blue; overwritten live by scraped colour */
+    --live-accent-soft:rgba(91,182,255,.20);
+    --warn:#FF8A6B;
+    --radius:18px;
+    --radius-sm:13px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1100px 700px at 85% -15%, rgba(255,255,255,.45), transparent 55%),
+      radial-gradient(900px 600px at -5% 105%, rgba(63,167,255,.35), transparent 55%),
+      linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:"Plus Jakarta Sans", system-ui, sans-serif;
+    font-size:13px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .mono{font-family:"IBM Plex Mono", ui-monospace, monospace}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:30px 22px 70px}
+
+  /* ---------- header ---------- */
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;
+    padding-bottom:20px;margin-bottom:22px}
+  .brand h1{
+    font-family:"Plus Jakarta Sans", sans-serif;
+    font-weight:800;font-size:clamp(30px,6vw,50px);line-height:.95;letter-spacing:-.025em;margin:0;
+    color:#0E2A57; text-shadow:0 1px 0 rgba(255,255,255,.35);
+  }
+  .brand h1 .dot{color:var(--signal)}
+  .brand .sub{color:#16407E;font-size:12px;letter-spacing:.16em;text-transform:uppercase;
+    margin-top:8px;font-weight:600;opacity:.75}
+  .status{font-size:11px;text-align:right;letter-spacing:.08em;text-transform:uppercase;color:#1a467f;
+    background:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.5);border-radius:999px;
+    padding:8px 14px;backdrop-filter:blur(6px);font-weight:600}
+  .status .lamp{display:inline-block;width:8px;height:8px;border-radius:50%;background:#9bb6d6;
+    margin-left:8px;vertical-align:middle;transition:.3s}
+  .status.run .lamp{background:#1FBF8F;box-shadow:0 0 12px #1FBF8F}
+  .status .now{color:#0E2A57}
+
+  /* ---------- layout grid ---------- */
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:18px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  /* ---------- glass panels ---------- */
+  .panel{
+    background:linear-gradient(145deg, var(--glass-1), var(--glass-2));
+    border:1px solid var(--edge);
+    border-radius:var(--radius);
+    position:relative;
+    box-shadow:0 22px 55px -24px rgba(8,28,68,.65), inset 0 1px 0 rgba(255,255,255,.22);
+    backdrop-filter:blur(10px);
+    overflow:hidden;
+  }
+  .panel::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,.10), transparent 32%);}
+  .panel-h{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;border-bottom:1px solid var(--edge-soft)}
+  .panel-h .t{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--signal-2);font-weight:600}
+  .panel-h .idx{font-size:10px;color:rgba(255,255,255,.25);letter-spacing:.2em;font-family:"IBM Plex Mono",monospace}
+  .panel-b{padding:18px}
+  .panel-h, .panel-b{position:relative;z-index:1}
+
+  /* ---------- chips (presets / atmospheres) ---------- */
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{appearance:none;background:rgba(255,255,255,.08);border:1px solid var(--edge-soft);color:var(--text);
+    font-family:inherit;font-size:11.5px;font-weight:500;letter-spacing:.02em;
+    padding:7px 13px;border-radius:999px;cursor:pointer;transition:.18s}
+  .chip:hover{background:rgba(255,255,255,.16);border-color:var(--edge)}
+  .chip.active{border-color:transparent;color:#06294B;font-weight:700;
+    background:linear-gradient(135deg,var(--signal-2),var(--signal));box-shadow:0 6px 16px -6px var(--signal)}
+
+  textarea#src{width:100%;height:128px;resize:vertical;background:rgba(6,18,42,.55);color:var(--text);
+    border:1px solid var(--edge-soft);border-radius:var(--radius-sm);padding:13px 14px;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;line-height:1.5}
+  textarea#src::placeholder{color:rgba(167,198,232,.65)}
+  textarea#src:focus{outline:none;border-color:var(--signal);box-shadow:0 0 0 3px var(--live-accent-soft)}
+
+  .loadrow{display:flex;gap:10px;align-items:center;margin-top:13px;flex-wrap:wrap}
+  .btn{appearance:none;font-family:inherit;cursor:pointer;border-radius:999px;
+    font-size:12.5px;font-weight:600;letter-spacing:.02em;padding:11px 20px;transition:.16s;border:1px solid transparent}
+  .btn-load{background:rgba(255,255,255,.10);border-color:var(--edge-soft);color:var(--text)}
+  .btn-load:hover{background:rgba(255,255,255,.18)}
+  .btn-run{background:linear-gradient(135deg,var(--signal-2),var(--signal));color:#04243F;
+    font-weight:700;flex:0 0 auto;box-shadow:0 10px 24px -10px var(--signal)}
+  .btn-run:hover{filter:brightness(1.06)}
+  .btn-run.on{background:linear-gradient(135deg,#FFB59B,var(--warn));color:#3A0F03;box-shadow:0 10px 24px -10px var(--warn)}
+  .readout{margin-left:auto;font-size:10.5px;color:var(--muted);letter-spacing:.02em;text-align:right;
+    line-height:1.45;font-family:"IBM Plex Mono",monospace}
+  .readout b{color:var(--text);font-weight:600}
+
+  /* ---------- visualizer ---------- */
+  .viz-wrap{position:relative;height:316px;border-radius:var(--radius-sm);overflow:hidden;
+    background:linear-gradient(170deg,#0c2350,#091a36);
+    box-shadow:inset 0 2px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06)}
+  canvas{display:block;width:100%;height:100%}
+  .viz-hud{position:absolute;left:14px;top:12px;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);pointer-events:none;font-family:"IBM Plex Mono",monospace}
+  .viz-hud .cur{color:var(--live-accent);transition:color .35s}
+  .viz-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:rgba(255,255,255,.25);font-size:12px;letter-spacing:.2em;text-transform:uppercase}
+
+  /* ---------- console / controls ---------- */
+  .console .panel-b{display:flex;flex-direction:column;gap:14px}
+  /* each control group becomes a soft translucent sub-card, like the reference's stacked cards */
+  .console .panel-b > div{
+    background:var(--inset);
+    border:1px solid var(--edge-soft);
+    border-radius:var(--radius-sm);
+    padding:13px 14px 10px;
+  }
+  .group-label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--signal-2);
+    margin-bottom:8px;display:flex;align-items:center;gap:10px;font-weight:600}
+  .group-label::after{content:"";flex:1;height:1px;background:var(--edge-soft)}
+
+  .ctl{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;margin:10px 0}
+  .ctl label{font-size:12px;color:var(--muted);letter-spacing:.01em;font-weight:500}
+  .ctl .val{font-size:11px;color:var(--text);text-align:right;min-width:48px;font-family:"IBM Plex Mono",monospace}
+  .ctl input[type=range]{grid-column:1/3;width:100%}
+
+  /* range styling — glossy thumb on a translucent track */
+  input[type=range]{-webkit-appearance:none;appearance:none;height:24px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;background:rgba(255,255,255,.16);border-radius:999px}
+  input[type=range]::-moz-range-track{height:5px;background:rgba(255,255,255,.16);border-radius:999px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;
+    margin-top:-6px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #fff, var(--signal-2));
+    border:none;box-shadow:0 2px 6px rgba(4,24,60,.5);transition:.15s}
+  input[type=range]:hover::-webkit-slider-thumb{background:radial-gradient(circle at 35% 30%, #fff, var(--signal))}
+  input[type=range]:focus{outline:none}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px var(--live-accent-soft)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;border:none;
+    background:radial-gradient(circle at 35% 30%, #fff, var(--signal-2));box-shadow:0 2px 6px rgba(4,24,60,.5)}
+
+  select{font-family:inherit;font-size:11.5px;font-weight:500;background:rgba(6,18,42,.5);color:var(--text);
+    border:1px solid var(--edge-soft);border-radius:999px;padding:7px 12px;cursor:pointer}
+  select:focus{outline:none;border-color:var(--signal)}
+  option{background:#123059;color:var(--text)}
+
+  .toggle{font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;
+    background:rgba(255,255,255,.08);color:var(--muted);border:1px solid var(--edge-soft);border-radius:999px;
+    padding:7px 16px;cursor:pointer;transition:.16s;min-width:64px}
+  .toggle:hover{background:rgba(255,255,255,.16);color:var(--text)}
+  .toggle.on{border-color:transparent;color:#06294B;font-weight:700;
+    background:linear-gradient(135deg,var(--signal-2),var(--signal));box-shadow:0 6px 16px -7px var(--signal)}
+
+  /* temporal matrix — slightly brighter glass to stand out */
+  .matrix{border:1px solid var(--edge) !important;
+    background:linear-gradient(145deg, rgba(127,208,255,.10), rgba(63,167,255,.05)) !important}
+
+  footer{margin-top:26px;color:#15457f;font-size:11.5px;letter-spacing:.01em;line-height:1.75;
+    background:rgba(255,255,255,.30);border:1px solid rgba(255,255,255,.5);border-radius:var(--radius-sm);
+    padding:16px 18px;backdrop-filter:blur(6px)}
+  footer code{color:#0c4a8f;background:rgba(63,167,255,.16);padding:1px 6px;border-radius:6px;
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px}
+  .key{color:#0E2A57;font-weight:700}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.001ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <h1>The Dom<span class="dot">·</span>Scraper</h1>
+      <div class="sub">URL → Granular Synthesis Engine</div>
+    </div>
+    <div class="status" id="status">
+      <span class="now">idle</span> · scrubbing <b id="posReadout">––</b> <span class="lamp"></span>
+    </div>
+  </header>
+
+  <!-- INPUT -->
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-h"><span class="t">Source · paste HTML/CSS or code</span><span class="idx">IN_00</span></div>
+    <div class="panel-b">
+      <div class="presets" id="presets">
+        <button class="chip" data-preset="news">Dense newsfeed</button>
+        <button class="chip" data-preset="portfolio">Minimal portfolio</button>
+        <button class="chip" data-preset="store">E-commerce</button>
+        <button class="chip" data-preset="brutal">Brutalist mono</button>
+        <button class="chip" data-preset="codeSample" data-mode="code">⌨ Code sample</button>
+      </div>
+      <textarea id="src" spellcheck="false" placeholder="Paste raw HTML/CSS, or switch to Raw code mode and paste any source file (JS, CSS, Python…). Live URL scraping needs a backend proxy to clear CORS, so it's offline in this sandbox."></textarea>
+      <div class="loadrow">
+        <select id="mode" style="font-family:inherit"><option value="dom">DOM mode</option><option value="code">Raw code</option></select>
+        <button class="btn btn-load" id="loadBtn">Parse ▸</button>
+        <button class="btn btn-run" id="runBtn">▶ Listen</button>
+        <div class="readout" id="readout">no source parsed</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- VISUALIZER -->
+    <div class="panel">
+      <div class="panel-h"><span class="t" id="vizTitle">Waterfall · live DOM scrub</span><span class="idx">VIZ_01</span></div>
+      <div class="panel-b" style="padding:10px">
+        <div class="viz-wrap">
+          <canvas id="viz"></canvas>
+          <div class="viz-hud">cell <span class="cur" id="hudTag">––</span> · <span id="hudInfo">––</span></div>
+          <div class="viz-empty" id="vizEmpty">awaiting source</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSOLE -->
+    <div class="panel console">
+      <div class="panel-h"><span class="t">Console</span><span class="idx">CTL_02</span></div>
+      <div class="panel-b">
+
+        <div>
+          <div class="group-label">Atmospheres</div>
+          <div class="presets" id="atmos" style="margin-bottom:0">
+            <button class="chip" data-atmos="cathedral">Cathedral</button>
+            <button class="chip" data-atmos="glass">Glass</button>
+            <button class="chip" data-atmos="tape">Tape ruins</button>
+            <button class="chip" data-atmos="tectonic">Tectonic</button>
+            <button class="chip" data-atmos="spectral">Spectral</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="group-label">Transport &amp; safety</div>
+          <div class="ctl"><label>Scrape speed</label><span class="val" id="vSpeed">3.5/s</span>
+            <input type="range" id="speed" min="0.5" max="20" step="0.1" value="3.5"></div>
+          <div class="ctl"><label>Grain density</label><span class="val" id="vDens">60%</span>
+            <input type="range" id="dens" min="0" max="100" step="1" value="60"></div>
+          <div class="ctl"><label>Filter (LP cutoff)</label><span class="val" id="vFilt">6.5k</span>
+            <input type="range" id="filt" min="0" max="100" step="1" value="62"></div>
+          <div class="ctl"><label>Master vol</label><span class="val" id="vVol">70%</span>
+            <input type="range" id="vol" min="0" max="100" step="1" value="70"></div>
+        </div>
+
+        <div>
+          <div class="group-label">Sanity ⟷ Chaos</div>
+          <div class="ctl"><label>Guardrails</label><span class="val" id="vChaos">20%</span>
+            <input type="range" id="chaos" min="0" max="100" step="1" value="20"></div>
+        </div>
+
+        <div>
+          <div class="group-label">Drone &amp; harmony</div>
+          <div class="ctl"><label>Voicing</label>
+            <select id="voicing" style="grid-column:2/3;justify-self:end">
+              <option value="fifths">Open fifths</option>
+              <option value="thirds">Stacked thirds</option>
+              <option value="quartal">Quartal (4ths)</option>
+              <option value="cluster">Cluster (2nds)</option>
+              <option value="overtone">Overtone / spectral</option>
+            </select></div>
+          <div class="ctl"><label>Scale / mode</label>
+            <select id="scale" style="grid-column:2/3;justify-self:end">
+              <option value="pent">G minor pentatonic</option>
+              <option value="aeolian">G natural minor</option>
+              <option value="dorian">G Dorian</option>
+              <option value="phrygian">G Phrygian</option>
+              <option value="lydian">G Lydian</option>
+              <option value="harmonicminor">G harmonic minor</option>
+              <option value="hirajoshi">Hirajoshi (JP)</option>
+              <option value="insen">In-sen (JP)</option>
+              <option value="wholetone">Whole tone</option>
+              <option value="chromatic">Chromatic (raw)</option>
+            </select></div>
+          <div class="ctl"><label>Voices</label><span class="val" id="vVoices">4</span>
+            <input type="range" id="voices" min="2" max="7" step="1" value="4"></div>
+          <div class="ctl"><label>Octave spread</label><span class="val" id="vSpread">30%</span>
+            <input type="range" id="spread" min="0" max="100" step="1" value="30"></div>
+          <div class="ctl"><label>Drift · beating</label><span class="val" id="vDrift">40%</span>
+            <input type="range" id="drift" min="0" max="100" step="1" value="40"></div>
+          <div class="ctl"><label>Bed ⟷ Cloud</label><span class="val" id="vMix">50%</span>
+            <input type="range" id="mix" min="0" max="100" step="1" value="50"></div>
+          <div class="ctl"><label>Root pedal</label>
+            <button id="pedal" class="toggle" role="switch" aria-checked="false" style="grid-column:2/3;justify-self:end">off</button></div>
+          <div class="ctl"><label>Depth → complexity</label>
+            <button id="depthHarm" class="toggle" role="switch" aria-checked="false" style="grid-column:2/3;justify-self:end">off</button></div>
+        </div>
+
+        <div>
+          <div class="group-label">Space &amp; timbre</div>
+          <div class="ctl"><label>Tonic / key</label>
+            <select id="tonic" style="grid-column:2/3;justify-self:end">
+              <option>C</option><option>D</option><option>E</option><option>F</option>
+              <option selected>G</option><option>A</option><option>B</option>
+            </select></div>
+          <div class="ctl"><label>Register</label><span class="val" id="vRegister">0 oct</span>
+            <input type="range" id="register" min="-2" max="2" step="1" value="0"></div>
+          <div class="ctl"><label>Shimmer</label><span class="val" id="vShimmer">20%</span>
+            <input type="range" id="shimmer" min="0" max="100" step="1" value="20"></div>
+          <div class="ctl"><label>Air · wind</label><span class="val" id="vAir">15%</span>
+            <input type="range" id="air" min="0" max="100" step="1" value="15"></div>
+          <div class="ctl"><label>Wash · swells</label><span class="val" id="vWash">50%</span>
+            <input type="range" id="wash" min="0" max="100" step="1" value="50"></div>
+          <div class="ctl"><label>Space · reverb</label><span class="val" id="vSpace">50%</span>
+            <input type="range" id="space" min="0" max="100" step="1" value="50"></div>
+          <div class="ctl"><label>Stereo width</label><span class="val" id="vWidth">60%</span>
+            <input type="range" id="width" min="0" max="100" step="1" value="60"></div>
+          <div class="ctl"><label>Detail · code micro-mods</label><span class="val" id="vDetail">50%</span>
+            <input type="range" id="detail" min="0" max="100" step="1" value="50"></div>
+        </div>
+
+        <div class="matrix">
+          <div class="group-label">Temporal matrix · decoupled glide</div>
+          <div class="ctl"><label>Harmonic inertia</label><span class="val" id="vHarm">60%</span>
+            <input type="range" id="harm" min="0" max="100" step="1" value="60"></div>
+          <div class="ctl"><label>Granular blur</label><span class="val" id="vBlur">55%</span>
+            <input type="range" id="blur" min="0" max="100" step="1" value="55"></div>
+          <div class="ctl"><label>Transient bleed</label><span class="val" id="vBleed">40%</span>
+            <input type="range" id="bleed" min="0" max="100" step="1" value="40"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span class="key">Signal chain:</span>
+    colors → quantized oscillators (<code>α = harmonic inertia</code>) ·
+    text density → Hann-windowed grain cloud (<code>α = granular blur</code>) ·
+    <code>&lt;div&gt;</code>/<code>&lt;img&gt;</code> → gates &amp; noise transients (<code>α = transient bleed</code>) ·
+    everything floors into a <code>DynamicsCompressor</code> brick-wall limiter before the speakers.
+    The console glow samples its accent from whatever hex the scrubber is reading right now.
+  </footer>
+</div>
+
+<script>
+/* ============================================================================
+   THE DOM-SCRAPER — client-side prototype
+   No AudioWorklet (sandbox-safe): granular synthesis via scheduled, Hann-
+   windowed AudioBufferSourceNodes + a quantized harmonic oscillator layer,
+   gate/noise layers, convolver reverb, and a brick-wall compressor limiter.
+   Smoothing is the one-pole filter  y += (x - y) * α  with per-zone α.
+   ========================================================================== */
+
+/* ---------------------------- music helpers ----------------------------- */
+const SCALES = {
+  pent:         [0,3,5,7,10],                 // minor pentatonic
+  aeolian:      [0,2,3,5,7,8,10],             // natural minor
+  dorian:       [0,2,3,5,7,9,10],
+  phrygian:     [0,1,3,5,7,8,10],
+  lydian:       [0,2,4,6,7,9,11],
+  harmonicminor:[0,2,3,5,7,8,11],
+  hirajoshi:    [0,2,3,7,8],                  // Japanese
+  insen:        [0,1,5,7,10],                 // Japanese
+  wholetone:    [0,2,4,6,8,10],
+  chromatic:    [0,1,2,3,4,5,6,7,8,9,10,11]
+};
+const TONICS = { C:36, D:38, E:40, F:41, G:43, A:45, B:47 };
+const midiToFreq = m => 440 * Math.pow(2,(m-69)/12);
+// tonic + register (octave shift) define the working root, set from the UI
+const rootBase = () => (TONICS[STATE.params.tonic]||43) + (STATE.params.register||0)*12;
+
+function hexToHsl(hex){
+  hex = hex.replace('#','');
+  if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const r=parseInt(hex.slice(0,2),16)/255,
+        g=parseInt(hex.slice(2,4),16)/255,
+        b=parseInt(hex.slice(4,6),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;
+  if(d){
+    if(mx===r) h=((g-b)/d)%6;
+    else if(mx===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if(h<0)h+=360;
+  }
+  const l=(mx+mn)/2;
+  const s=d? d/(1-Math.abs(2*l-1)) : 0;
+  return {h,s,l,hex:'#'+hex};
+}
+function hslToHex(h,s,l){
+  h=((h%360)+360)%360/360;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{ const k=(n+h*12)%12; const c=l-a*Math.max(-1,Math.min(k-3,9-k,1));
+    return Math.round(255*Math.max(0,Math.min(1,c))).toString(16).padStart(2,'0'); };
+  return '#'+f(0)+f(8)+f(4);
+}
+
+// hue -> scale degree, lightness -> octave. Returns the scale-snapped root info.
+function colorToRoot(hsl, scaleKey){
+  const sc = SCALES[scaleKey]||SCALES.pent;
+  const deg = Math.floor((hsl.h/360) * sc.length) % sc.length;
+  const oct = Math.floor(hsl.l * 3);                 // 0..2 octaves above root
+  const midi = rootBase() + sc[deg] + 12*oct;
+  return { midi, deg, oct };
+}
+function colorToFreq(hsl, scaleKey){ return midiToFreq(colorToRoot(hsl,scaleKey).midi); }
+
+/* ------------------------------- parser --------------------------------- */
+const CONTAINER = new Set(['DIV','SECTION','ARTICLE','MAIN','HEADER','FOOTER','NAV','ASIDE','UL','OL','TABLE','FORM']);
+const HEX_RE = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g;
+
+// tiny signed value from the exact hex low-bits — distinguishes same-hue colours
+function colorMicro(hex){
+  hex=hex.replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  return (((r&15)+(g&15)-(b&15)*2)/30);   // ~ -1 .. 1
+}
+
+function parseSource(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html'); // scripts never execute
+  // collect every hex color in <style> blocks + inline styles, in document order they appear
+  const styleHexes = [];
+  doc.querySelectorAll('style').forEach(s=>{
+    let m; while((m = HEX_RE.exec(s.textContent))) styleHexes.push('#'+m[1]);
+  });
+  HEX_RE.lastIndex = 0;
+
+  // global code "texture" metrics from the raw source (constant for the page)
+  const total = Math.max(1, html.length);
+  const ws = (html.match(/\s/g)||[]).length;
+  const eqs = (html.match(/=/g)||[]).length;
+  const meta = { wsRatio: ws/total, eqDensity: eqs/total };
+
+  const cells = [];
+  const all = doc.body ? doc.body.querySelectorAll('*') : [];
+  let depthMax = 1, hexCursor = 0;
+
+  all.forEach(el=>{
+    if(['SCRIPT','STYLE','LINK','META'].includes(el.tagName)) return;
+    let depth=0,p=el; while(p && p!==doc.body){depth++;p=p.parentElement;}
+    depthMax = Math.max(depthMax, depth);
+
+    // direct text length + punctuation / digit content (own text nodes only)
+    let textLen=0, ownText='';
+    el.childNodes.forEach(n=>{ if(n.nodeType===3){ const tx=n.textContent.trim(); textLen+=tx.length; ownText+=tx; } });
+    const punct = (ownText.match(/[.,;:!?'"()\[\]{}<>\/\\|=+\-*&%$#@~^]/g)||[]).length;
+    const digits= (ownText.match(/[0-9]/g)||[]).length;
+    const textN = Math.max(1, ownText.length);
+
+    // attributes / '=' signs on this element
+    const attrs = el.attributes.length;
+    let eq=0; for(const a of el.attributes){ if(a.value!=='') eq++; }
+
+    // color: inline style hex, else borrow from the stylesheet pool
+    let color=null;
+    const inline = el.getAttribute('style');
+    if(inline){ const m = inline.match(HEX_RE); if(m) color = m[0]; }
+    if(!color && (CONTAINER.has(el.tagName) || textLen>0) && styleHexes.length){
+      color = styleHexes[hexCursor % styleHexes.length]; hexCursor++;
+    }
+
+    cells.push({
+      tag: el.tagName,
+      depth, textLen, color,
+      isImg: el.tagName==='IMG',
+      isContainer: CONTAINER.has(el.tagName),
+      attrs, eq,
+      punctD: punct/textN,                 // punctuation density 0..1
+      digitD: digits/textN,                // digit density 0..1
+      micro: color? colorMicro(color) : 0  // exact-hex micro signature
+    });
+  });
+
+  return { cells: cells.slice(0,2000), depthMax, meta,
+           stats:{ nodes:cells.length, imgs:cells.filter(c=>c.isImg).length,
+                   colors:[...new Set(cells.map(c=>c.color).filter(Boolean))].length,
+                   text:cells.reduce((a,c)=>a+c.textLen,0), depth:depthMax } };
+}
+
+/* ---- RAW CODE mode: tokenise by LINE, emit the same cell shape the engine consumes ---- */
+const KW_DECL = /\b(function|def|class|const|let|var|import|from|include|struct|fn|public|private|protected|interface|type|enum|module|package|namespace|template|trait|impl)\b/;
+const KW_CTRL = /\b(if|else|elif|for|while|switch|case|return|break|continue|do|try|catch|finally|throw|throws|await|async|yield|match|when|guard|defer)\b/;
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31 + s.charCodeAt(i))>>>0; return h; }
+
+function parseCode(src){
+  const lines = src.replace(/\r\n?/g,'\n').split('\n');
+  const total = Math.max(1, src.length);
+  const meta = { wsRatio:(src.match(/\s/g)||[]).length/total, eqDensity:(src.match(/=/g)||[]).length/total };
+
+  // infer indent unit (2 vs 4 spaces)
+  let unit=2; for(const l of lines){ const m=l.match(/^( +)\S/); if(m){ unit=m[1].length>=4?4:2; break; } }
+
+  const cells=[]; let depthMax=1, nesting=0;
+  lines.forEach(raw=>{
+    const line=raw.replace(/\t/g,'  ');
+    const trimmed=line.trim();
+    const lead=line.match(/^(\s*)/)[1].length;
+    const indent=Math.min(12, Math.floor(lead/unit));
+    const blank = trimmed==='';
+    const isComment = blank || /^(\/\/|#|\/\*|\*\/|\*|<!--|--|;;?)/.test(trimmed);
+    const opens=(trimmed.match(/[\{\(\[]/g)||[]).length;
+    const closes=(trimmed.match(/[\}\)\]]/g)||[]).length;
+    const depth=Math.max(1, 1 + Math.max(indent, nesting));   // indentation OR bracket nesting
+    nesting=Math.max(0, nesting + opens - closes);
+    depthMax=Math.max(depthMax, depth);
+
+    const opensBlock = /[\{\(\[]\s*$/.test(trimmed) || /:\s*$/.test(trimmed);
+    const hexm = trimmed.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/);
+    const tN=Math.max(1, trimmed.length);
+
+    // synthesise a hue from the line's syntactic role so harmony tracks code structure
+    let color=null;
+    if(hexm) color=hexm[0];
+    else if(!blank){
+      let hue = KW_DECL.test(trimmed) ? 212        // declarations -> blue
+              : KW_CTRL.test(trimmed) ? 32         // control flow -> amber
+              : isComment             ? 142        // comments -> calm green
+              : hashStr(trimmed.slice(0,10))%360;  // otherwise a stable hash hue
+      hue=(hue + indent*7)%360;                    // nested lines drift in pitch
+      const symbols=(trimmed.match(/[^A-Za-z0-9\s]/g)||[]).length;
+      const sat = isComment ? 0.16 : Math.min(0.92, 0.35 + (symbols/tN)*1.6);
+      const light= 0.28 + Math.min(0.5, indent*0.07);
+      color = hslToHex(hue, sat, light);
+    }
+
+    const punct=(trimmed.match(/[.,;:!?'"()\[\]{}<>\/\\|=+\-*&%$#@~^]/g)||[]).length;
+    const digits=(trimmed.match(/[0-9]/g)||[]).length;
+    const tokens=(trimmed.match(/[A-Za-z_$][\w$]*/g)||[]).length;
+    const eq=(trimmed.match(/=/g)||[]).length;
+
+    cells.push({
+      tag: blank?'blank':isComment?'comment':opensBlock?'block':/["'`]/.test(trimmed)?'string':'line',
+      depth, textLen:trimmed.length, color,
+      isImg:false,
+      isContainer:opensBlock,                     // block openers -> structural swells
+      attrs:Math.min(20, tokens), eq,
+      punctD:punct/tN, digitD:digits/tN,
+      micro: color? colorMicro(color) : ((hashStr(trimmed)%200-100)/100)
+    });
+  });
+
+  return { cells: cells.slice(0,4000), depthMax, meta,
+           stats:{ nodes:cells.length, imgs:0,
+                   colors:[...new Set(cells.map(c=>c.color).filter(Boolean))].length,
+                   text:cells.reduce((a,c)=>a+c.textLen,0), depth:depthMax } };
+}
+const PRESETS = {
+  news:`<style>.feed{background:#1a1a1a;color:#e2e2e2}.hot{color:#ff3b30}.tag{color:#0a84ff}</style>
+<div class="feed"><header><nav><div><div><a>Top</a><a>New</a><a>Rising</a></div></div></nav></header>
+<section><article><div><div><h2 class="hot">Markets tumble as data spikes</h2>
+<p>Dense paragraph after dense paragraph of reporting fills this column with relentless text density, the kind that fragments into rapid grain clouds when sonified through a scraper engine reading character by character.</p>
+<div><div><span class="tag">politics</span><span class="tag">economy</span></div></div></div></div>
+<article><div><div><p>Another stacked story, more nested wrappers, more comment threads collapsing into deeper and deeper DOM trees that echo and reverberate.</p>
+<div><div><div><p>Reply chains nest five layers deep here.</p></div></div></div></div></div></article></section>
+<aside><div><div><img alt="ad banner promo"><img alt="sponsored"><img alt="trending now"></div></div></aside></div>`,
+
+  portfolio:`<style>body{background:#f7f5f0;color:#2a2a28}.accent{color:#8a9b8e}.work{color:#c9b8a0}</style>
+<main><header><h1>Studio</h1></header>
+<section><p class="accent">Quiet work, slowly made.</p></section>
+<section><div><h2 class="work">Selected</h2></div></section>
+<section><img alt="one photograph"></section>
+<footer><p>—</p></footer></main>`,
+
+  store:`<style>.shop{background:#fff}.price{color:#b12704}.deal{color:#067d62}.cta{color:#ff9900}</style>
+<div class="shop"><header><nav><div><div><div>cart</div></div></div></nav></header>
+<section><div><div><img alt="product 1"><div><span class="price">$24.99</span><span class="deal">save 30%</span></div></div></div>
+<div><div><img alt="product 2 lifestyle shot"><div><span class="price">$199</span><button class="cta">Buy now</button></div></div></div>
+<div><div><img alt="product 3"><img alt="product 3 alt"><img alt="product 3 swatch"><div><span class="price">$8</span></div></div></div></section>
+<aside><div><img alt="recommended"><img alt="also bought"><img alt="sponsored"></div></aside></div>`,
+
+  brutal:`<style>body{background:#000;color:#0f0;font-family:monospace}.q{color:#fff}.x{color:#ff0050}</style>
+<main><h1>RAW</h1><div><div><p class="q">structure is the only ornament</p></div></div>
+<div><p class="x">break the grid break the grid break the grid</p></div>
+<div><div><div><div>nested for the sake of nesting</div></div></div></div></main>`,
+
+  codeSample:`// granular voice — schedules windowed grains over time
+import { clamp, lerp } from "./utils.js";
+
+const PALETTE = ["#1E293B", "#38BDF8", "#FACC15"];
+const TWO_PI = Math.PI * 2;
+
+export class GrainCloud {
+  constructor(ctx, opts = {}) {
+    this.ctx = ctx;
+    this.density = opts.density ?? 0.6;
+    this.size = opts.size ?? 0.12;
+    this.voices = [];
+  }
+
+  schedule(now, dt) {
+    const rate = 5 + this.density * 55;
+    let clock = 0;
+    while (clock < dt) {
+      clock += 1 / rate;
+      if (this.density > 0.02) {
+        const pan = Math.random() * 2 - 1;
+        const detune = lerp(-12, 12, Math.random());
+        this.spawn(now + clock, this.size, pan, detune);
+      }
+    }
+  }
+
+  spawn(t, dur, pan, detune) {
+    const src = this.ctx.createBufferSource();
+    const env = this.ctx.createGain();
+    env.gain.setValueCurveAtTime(hann(160), t, dur);
+    src.detune.value = detune;
+    src.connect(env).connect(this.bus);
+    src.start(t);
+    src.stop(t + dur + 0.05);
+  }
+}
+
+function hann(n) {
+  const w = new Float32Array(n);
+  for (let i = 0; i < n; i++) w[i] = 0.5 * (1 - Math.cos((TWO_PI * i) / (n - 1)));
+  return w;
+}`
+};
+
+/* ----------------------------- audio engine ----------------------------- */
+let actx=null, engine=null;
+
+function buildEngine(){
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+
+  // ---- master chain: bus -> filter -> [dry + reverb + delay] -> limiter -> out ----
+  const master = ctx.createGain(); master.gain.value = (STATE.params.vol||70)/100;
+  const filter = ctx.createBiquadFilter(); filter.type='lowpass'; filter.frequency.value=9000; filter.Q.value=0.4;
+
+  // reverb (long decaying-noise impulse, stereo) — a big space for the drone to sit in
+  const conv = ctx.createConvolver();
+  { const len=Math.floor(ctx.sampleRate*5.5), buf=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(let ch=0;ch<2;ch++){const d=buf.getChannelData(ch);
+      for(let i=0;i<len;i++){const t=i/len; d[i]=(Math.random()*2-1)*Math.pow(1-t,2.2);}}
+    conv.buffer=buf; }
+  const wet = ctx.createGain(); wet.gain.value=0.45;
+  const dry = ctx.createGain(); dry.gain.value=0.85;
+
+  // feedback delay — slow movement & space
+  const delay=ctx.createDelay(1.4); delay.delayTime.value=0.55;
+  const fb=ctx.createGain(); fb.gain.value=0.4;
+  const delaySend=ctx.createGain(); delaySend.gain.value=0.0;
+  delay.connect(fb).connect(delay);
+
+  // brick-wall-ish limiter (always last)
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value=-5; limiter.knee.value=3; limiter.ratio.value=16;
+  limiter.attack.value=0.005; limiter.release.value=0.25;
+
+  // subsonic cleanup so low registers + pedal can't build mud / DC into the limiter
+  const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=28; hp.Q.value=0.5;
+
+  // metering tap (post-limiter), drives the clip meter in the HUD
+  const analyser = ctx.createAnalyser(); analyser.fftSize=1024;
+
+  filter.connect(hp);
+  hp.connect(dry).connect(limiter);
+  hp.connect(conv).connect(wet).connect(limiter);
+  hp.connect(delaySend).connect(delay).connect(limiter);
+  limiter.connect(ctx.destination);
+  limiter.connect(analyser);
+  master.connect(filter);
+
+  // ---- DRONE BED: sustained, detuned voices that HOLD pitch (no glide = no siren) ----
+  const droneBus = ctx.createGain(); droneBus.gain.value=0.5;
+  const droneLP  = ctx.createBiquadFilter(); droneLP.type='lowpass'; droneLP.frequency.value=1400; droneLP.Q.value=0.6;
+  const droneOut = ctx.createGain(); droneOut.gain.value=1.0;            // bed<->cloud mix tap
+  droneBus.connect(droneLP).connect(droneOut).connect(master);
+  // slow LFOs for "breathing" — these move TIMBRE and AMPLITUDE only, never pitch
+  const lfoF=ctx.createOscillator(); lfoF.type='sine'; lfoF.frequency.value=0.06;
+  const lfoFg=ctx.createGain(); lfoFg.gain.value=650; lfoF.connect(lfoFg).connect(droneLP.frequency); lfoF.start();
+  const lfoA=ctx.createOscillator(); lfoA.type='sine'; lfoA.frequency.value=0.045;
+  const lfoAg=ctx.createGain(); lfoAg.gain.value=0.12; lfoA.connect(lfoAg).connect(droneBus.gain); lfoA.start();
+
+  // ---- ROOT PEDAL: a constant tonic anchor, independent of chord crossfades ----
+  const pedalOut = ctx.createGain(); pedalOut.gain.value=0.0; pedalOut.connect(droneLP);
+
+  // ---- granular cloud: evolving STEREO source buffer to scrub a playhead through ----
+  const grainBus = ctx.createGain(); grainBus.gain.value=0.0; grainBus.connect(master);
+  const shimmer  = ctx.createGain(); shimmer.gain.value=0.0; shimmer.connect(conv);  // octave-up grains -> reverb tail
+  const baseHz=110, gDur=4.0, gLen=Math.floor(ctx.sampleRate*gDur);
+  const grainBuf=ctx.createBuffer(2,gLen,ctx.sampleRate);
+  { const partials=[1,2,3,4.02,5.01,6.98,8.03,10.1], amps=[1,.55,.36,.24,.17,.12,.08,.05];
+    for(let ch=0;ch<2;ch++){const d=grainBuf.getChannelData(ch), det=ch?1.004:0.996;
+      for(let i=0;i<gLen;i++){const t=i/ctx.sampleRate; let s=0;
+        for(let p=0;p<partials.length;p++){
+          const beat=0.55+0.45*Math.sin(2*Math.PI*(0.04+p*0.017)*t+ch*1.7);
+          s+=amps[p]*beat*Math.sin(2*Math.PI*baseHz*partials[p]*det*t);
+        }
+        d[i]=(s*0.16)+(Math.random()*2-1)*0.02; } } }
+  const HANN_N=160, hann=new Float32Array(HANN_N);
+  for(let i=0;i<HANN_N;i++) hann[i]=0.5*(1-Math.cos(2*Math.PI*i/(HANN_N-1)));
+
+  // ---- texture wash bus (containers/images -> soft filtered-noise swells, NOT ticks) ----
+  const noiseBuf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
+  { const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
+  const washBus=ctx.createGain(); washBus.gain.value=0.5; washBus.connect(master);
+
+  // ---- AIR: a constant filtered-noise wind bed, slowly swept ----
+  const airSrc=ctx.createBufferSource(); airSrc.buffer=noiseBuf; airSrc.loop=true;
+  const airBP=ctx.createBiquadFilter(); airBP.type='bandpass'; airBP.frequency.value=1200; airBP.Q.value=0.5;
+  const airGain=ctx.createGain(); airGain.gain.value=0.0;
+  const airLFO=ctx.createOscillator(); airLFO.type='sine'; airLFO.frequency.value=0.03;
+  const airLFOg=ctx.createGain(); airLFOg.gain.value=700; airLFO.connect(airLFOg).connect(airBP.frequency); airLFO.start();
+  airSrc.connect(airBP).connect(airGain).connect(master); airSrc.start();
+
+  return { ctx, master, filter, wet, fb, conv, delay:delaySend, analyser,
+           drone:{ bus:droneBus, lp:droneLP, out:droneOut, voices:[], freqs:[], hue:null },
+           pedal:{ out:pedalOut, voices:[], on:false },
+           grain:{ bus:grainBus, shimmer, buf:grainBuf, baseHz, dur:gDur, hann, hannN:HANN_N },
+           wash:{ buf:noiseBuf, bus:washBus }, air:{ node:airGain } };
+}
+
+/* spawn one Hann-windowed grain: pitched to a HELD chord tone, panned, reading the buffer */
+function spawnGrain(e, time, freq, dur, amp, posSec, pan, dest){
+  const g=e.grain, ctx=e.ctx;
+  const src=ctx.createBufferSource(); src.buffer=g.buf;
+  src.playbackRate.value = freq/g.baseHz;
+  const env=ctx.createGain(); env.gain.value=0;
+  env.gain.setValueCurveAtTime(g.hann.map(v=>v*amp), time, dur);
+  const pn=ctx.createStereoPanner(); pn.pan.value=pan;
+  src.connect(env).connect(pn).connect(dest||g.bus);
+  const off=Math.max(0,Math.min(g.dur-dur-0.02, posSec));
+  src.start(time, off, dur+0.03);
+  src.stop(time+dur+0.05);
+}
+
+/* CROSSFADE the drone to a new chord. Every voice holds a CONSTANT pitch; harmony moves
+   only by fading layers in and out — this is precisely what keeps it a drone, not a siren.
+   Each voice gets a slow detune LFO (organic beating) and a stereo position (width). */
+function setChord(e, freqs, fade, opts){
+  const ctx=e.ctx, t=ctx.currentTime, D=e.drone;
+  const drift=(opts&&opts.drift)||0, width=(opts&&opts.width)||0, det=(opts&&opts.detune)||0;
+  D.voices.forEach(v=>{                              // fade & retire current voices
+    v.g.gain.cancelScheduledValues(t);
+    v.g.gain.setTargetAtTime(0, t, fade/3);
+    const stop=t+fade*2+1.0;
+    v.oscs.forEach(o=>{ try{o.stop(stop);}catch(_){} });
+    if(v.lfo){ try{v.lfo.stop(stop);}catch(_){} }
+  });
+  D.voices=[];
+  const n=freqs.length, target=0.18/Math.sqrt(n), spread=8+det;   // det widens beating from hex/'='
+  freqs.forEach((f,i)=>{
+    const g=ctx.createGain(); g.gain.value=0;
+    g.gain.setTargetAtTime(target, t, fade/3);       // fade IN — no pitch movement anywhere
+    const pan=ctx.createStereoPanner(); pan.pan.value = n>1 ? ((i/(n-1))*2-1)*width : 0;
+    const lfo=ctx.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.03+Math.random()*0.13;
+    const lg=ctx.createGain(); lg.gain.value=drift*16; lfo.connect(lg); lfo.start(t); // tiny ± cents drift
+    const oscs=[];
+    [-spread,0,spread].forEach(cents=>{               // 3 detuned copies -> rich slow beating
+      const o=ctx.createOscillator();
+      o.type = i===0 ? 'triangle' : 'sine';
+      o.frequency.value=f; o.detune.value=cents;
+      lg.connect(o.detune);
+      o.connect(g); o.start(t); oscs.push(o);
+    });
+    g.connect(pan).connect(D.bus);
+    D.voices.push({g,oscs,lfo,freq:f});
+  });
+  D.freqs=freqs;
+}
+
+/* build a sustained drone chord from a scale-snapped root, per the chosen VOICING */
+function buildChord(root, scaleKey, opts){
+  const sc=SCALES[scaleKey]||SCALES.pent, N=sc.length;
+  const voicing=opts.voicing||'fifths',
+        voices=Math.max(2,Math.min(7,opts.voices||4)),
+        spread=opts.spread||0, rb=rootBase();
+  if(voicing==='overtone'){                           // spectral: harmonic partials (microtonal)
+    const rf=midiToFreq(rb + sc[root.deg] + 12*root.oct), parts=[1,2,3,4,5,6,7,9];
+    const out=[rf*0.5];
+    for(let k=0;k<voices;k++) out.push(rf*parts[k%parts.length]*Math.pow(2,Math.floor(k/parts.length)));
+    return dedupeFreqs(out);
+  }
+  const step = voicing==='thirds'?2 : voicing==='quartal'?3 : voicing==='cluster'?1
+             : /*fifths*/ (N>=7?4 : Math.max(1,Math.round(N*0.6)));
+  const out=[];
+  for(let k=0;k<voices;k++){
+    const di  = root.deg + k*step;
+    const oct = (k===0?-1:0) + root.oct + Math.floor(di/N) + Math.round(k*spread*0.9);
+    const midi= rb + sc[((di%N)+N)%N] + 12*oct;
+    out.push(midiToFreq(midi));
+  }
+  return dedupeFreqs(out);
+}
+function dedupeFreqs(freqs){
+  const out=[];
+  freqs.slice().sort((a,b)=>a-b).forEach(f=>{
+    if(f>=28 && f<=4500 && !out.some(x=>Math.abs(x-f)<1.2)) out.push(f);
+  });
+  return out.length?out:[110];
+}
+
+/* ROOT PEDAL: a constant tonic anchor (tonic + fifth + sub), independent of chord changes */
+function setPedal(e, on){
+  const ctx=e.ctx, t=ctx.currentTime, P=e.pedal;
+  P.on=on;
+  if(on){
+    if(P.voices.length) return;
+    const rb=rootBase();
+    [rb-12, rb, rb+7].forEach((m,i)=>{
+      const g=ctx.createGain(); g.gain.value = i===0?0.5:0.3;
+      const o1=ctx.createOscillator(); o1.type=i===0?'triangle':'sine'; o1.frequency.value=midiToFreq(m);
+      const o2=ctx.createOscillator(); o2.type='sine'; o2.frequency.value=midiToFreq(m); o2.detune.value=7;
+      o1.connect(g); o2.connect(g); g.connect(P.out);
+      o1.start(t); o2.start(t);
+      P.voices.push({g,oscs:[o1,o2]});
+    });
+  } else {
+    P.voices.forEach(v=>{ v.g.gain.setTargetAtTime(0,t,0.4);
+      v.oscs.forEach(o=>{ try{o.stop(t+2);}catch(_){} }); });
+    P.voices=[];
+  }
+}
+
+/* a soft filtered-noise SWELL (wind/breath) — replaces all percussive triggers */
+function fireWash(e, bright, dur, pan, amp){
+  const ctx=e.ctx, t=ctx.currentTime;
+  const s=ctx.createBufferSource(); s.buffer=e.wash.buf; s.loop=true;
+  s.playbackRate.value=0.5+Math.random()*0.5;
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass';
+  bp.frequency.setValueAtTime(300+bright*1200, t);
+  bp.frequency.linearRampToValueAtTime(500+bright*4000, t+dur*0.6);  // opens...
+  bp.frequency.linearRampToValueAtTime(300+bright*900, t+dur);       // ...then closes
+  bp.Q.value=0.8;
+  const g=ctx.createGain(); g.gain.value=0;
+  g.gain.linearRampToValueAtTime(amp, t+dur*0.45);                   // slow swell in
+  g.gain.setTargetAtTime(0, t+dur*0.45, dur*0.4);                    // slow fade out
+  const pn=ctx.createStereoPanner(); pn.pan.value=pan;
+  s.connect(bp).connect(g).connect(pn).connect(e.wash.bus);
+  s.start(t); s.stop(t+dur+0.6);
+}
+
+/* ------------------------------ controller ------------------------------ */
+const STATE = {
+  cells:[], depthMax:1, playing:false, pos:0, reharm:false, runDepth:0, mode:'dom',
+  meta:{ wsRatio:0.2, eqDensity:0.02 },
+  // running (smoothed) colour of the page region, drives the held chord
+  runHue:null, runLight:0.5, runSat:0.4, lastChord:0,
+  // smoothed continuous textures + subtle code-driven micro-mods
+  s:{ freq:110, density:0, grainSize:0.12, wet:0.3, orn:0, grit:0, micro:0 },
+  t:{ freq:110, density:0, grainSize:0.12, wet:0.3 },
+  params:{ speed:3.5, dens:0.6, filt:0.62, vol:0.7, chaos:0.2,
+           harm:0.6, blur:0.55, bleed:0.4, scale:'pent',
+           voicing:'fifths', voices:4, spread:0.3, drift:0.4, mix:0.5, pedal:false, depthHarm:false,
+           tonic:'G', register:0, shimmer:0.2, air:0.15, wash:0.5, space:0.5, width:0.6, detail:0.5 }
+};
+
+// map slider% (inertia) -> one-pole alpha. 0% => snappy (α≈0.4), 100% => glacial (α≈0.0006)
+const inertiaToAlpha = p => 0.4*Math.pow(0.0015/0.4, p);
+
+let lastT=0, grainClock=0, lastCellIdx=-1, grainPos=0.2;
+
+function advance(dt){
+  const P=STATE.params, e=engine;
+  STATE.pos += P.speed*dt;
+  if(STATE.pos >= STATE.cells.length) STATE.pos = 0; // loop
+  const idx = Math.floor(STATE.pos);
+  const cell = STATE.cells[idx];
+  if(!cell) return;
+  const chaos=P.chaos, now=e.ctx.currentTime;
+
+  // ---- track the page's RUNNING colour (smoothed over a region, not one tag) ----
+  if(cell.color){
+    const hsl=hexToHsl(cell.color);
+    STATE.t.freq   = colorToFreq(hsl, P.scale);
+    STATE.runHue   = STATE.runHue==null ? hsl.h : STATE.runHue + (hsl.h-STATE.runHue)*0.08;
+    STATE.runLight = STATE.runLight + (hsl.l-STATE.runLight)*0.08;
+    STATE.runSat   = STATE.runSat + (hsl.s-STATE.runSat)*0.08;
+    setAccent(hsl.hex);
+  }
+  let win=0,n=0;
+  for(let k=idx;k<Math.min(idx+12,STATE.cells.length);k++){ win+=STATE.cells[k].textLen; n++; }
+  const avgText = n? win/n : 0;
+  STATE.runDepth += (cell.depth - STATE.runDepth)*0.06;     // smoothed nesting depth
+  STATE.t.density   = Math.min(1, Math.log10(1+avgText)/2.4) * P.dens;
+  STATE.t.grainSize = 0.22 - 0.13*Math.min(1,avgText/350);
+  STATE.t.wet       = 0.18 + (cell.depth/Math.max(2,STATE.depthMax))*0.5;
+
+  // subtle code-driven micro-mods (all scaled by Detail) — attributes/'=', punctuation, exact hex
+  const det=P.detail;
+  const ornT  = Math.min(1,(cell.attrs+cell.eq)/8)*det;   // ornamentation -> grain width/movement
+  const gritT = Math.min(1, cell.punctD*3)*det;           // punctuation -> grain grit
+  const microT= (cell.micro||0)*det;                      // exact-hex signature -> micro-detune
+  STATE.s.orn   += (ornT   - STATE.s.orn)  *0.05;
+  STATE.s.grit  += (gritT  - STATE.s.grit) *0.05;
+  STATE.s.micro += (microT - STATE.s.micro)*0.05;
+
+  // ---- harmony evolves by CROSSFADE; also rebuild at once when a knob asks (reharm) ----
+  const fade   = 1.2 + P.harm*7;       // harmonic inertia = crossfade length
+  const minGap = 1.5 + P.harm*7;       // and min seconds between automatic chord changes
+  const makeChord=(fd)=>{
+    const root=colorToRoot({h:STATE.runHue,s:STATE.runSat,l:STATE.runLight}, P.scale);
+    let voices=P.voices, spread=P.spread;
+    if(P.depthHarm){                                         // nesting -> richer, wider harmony
+      const dN=Math.min(1, STATE.runDepth/Math.max(3,STATE.depthMax));
+      voices=Math.min(7, Math.round(P.voices + dN*3));
+      spread=Math.min(1, P.spread + dN*0.45);
+    }
+    const detBonus = Math.min(16, (STATE.meta.eqDensity*120 + Math.abs(STATE.s.micro)*12) * P.detail);
+    setChord(e, buildChord(root, P.scale, {voicing:P.voicing,voices,spread}),
+             fd, {drift:P.drift, width:P.width, detune:detBonus});
+  };
+  const hueMoved = e.drone.hue==null ? 999 : Math.abs(((STATE.runHue - e.drone.hue + 540)%360) - 180);
+  if(STATE.runHue!=null){
+    if(STATE.reharm){ STATE.reharm=false; STATE.lastChord=now; e.drone.hue=STATE.runHue; makeChord(Math.min(2.5,fade)); }
+    else if(e.drone.hue==null || (hueMoved>22 && now-STATE.lastChord>minGap)){
+      STATE.lastChord=now; e.drone.hue=STATE.runHue; makeChord(fade);
+    }
+  }
+
+  // ---- soft texture swells on crossing containers / images (no percussion) ----
+  if(idx!==lastCellIdx){
+    lastCellIdx=idx;
+    if(P.wash>0.02 && cell.isContainer && Math.random()<0.22)
+      fireWash(e, STATE.runSat||0.4, 2.5+P.bleed*5, (Math.random()*2-1)*0.5, (0.09+P.bleed*0.12)*P.wash);
+    if(P.wash>0.02 && cell.isImg)
+      fireWash(e, 0.75, 1.6+P.bleed*3, (Math.random()*2-1)*0.7, 0.13*P.wash);
+    hudTag.textContent='<'+cell.tag.toLowerCase()+'>';
+    hudInfo.textContent = (cell.color?cell.color+' · ':'') + 'd'+cell.depth + ' · ' + cell.textLen + ' chars';
+    posReadout.textContent = (idx+1)+' / '+STATE.cells.length;
+  }
+
+  // ---- one-pole smoothing (decoupled alphas) for the continuous textures ----
+  const aBlur=inertiaToAlpha(P.blur);
+  STATE.s.freq      += (STATE.t.freq      - STATE.s.freq)     * 0.04;   // viz scope only
+  STATE.s.density   += (STATE.t.density   - STATE.s.density)  * aBlur;
+  STATE.s.grainSize += (STATE.t.grainSize - STATE.s.grainSize)* aBlur;
+  STATE.s.wet       += (STATE.t.wet       - STATE.s.wet)      * 0.02;
+
+  // grain playhead drifts through the source; page section offsets it
+  grainPos += dt*0.04; if(grainPos > e.grain.dur-0.4) grainPos=0.1;
+  const sectionPos = ((idx%180)/180)*(e.grain.dur-0.6);
+
+  // ---- continuous params: bed/cloud mix · pedal · shimmer · air · space · filter ----
+  const mix=P.mix, bedAmt=Math.min(1,2*(1-mix)), cloudAmt=Math.min(1,2*mix);
+  e.drone.out.gain.setTargetAtTime(bedAmt, now, 0.25);
+  e.pedal.out.gain.setTargetAtTime(e.pedal.on? bedAmt*0.7 : 0, now, 0.3);
+  e.grain.bus.gain.setTargetAtTime(STATE.s.density*0.7*cloudAmt, now, 0.12);
+  e.grain.shimmer.gain.setTargetAtTime(P.shimmer*0.9*cloudAmt, now, 0.2);
+  e.air.node.gain.setTargetAtTime(P.air*0.22, now, 0.4);
+  e.wet.gain.setTargetAtTime((0.18+STATE.s.wet*0.5)*(0.4+P.space*1.2), now, 0.3);
+  e.fb.gain.setTargetAtTime(0.2+P.space*0.45, now, 0.3);
+  e.delay.gain.setTargetAtTime(0.08+P.space*0.3, now, 0.2);
+  const filtMax = 600 + P.filt*16000;
+  const filtClamped = chaos<0.5 ? Math.min(filtMax, 1400+chaos*8000) : filtMax;
+  e.filter.frequency.setTargetAtTime(filtClamped, now, 0.1);
+
+  // ---- grain scheduler: pin pitches to the HELD chord tones (stable shimmer, no sweep) ----
+  grainClock += dt;
+  const rate = 5 + STATE.s.density*55;   // grains/sec
+  const interval = (1/rate) * (1 + STATE.meta.wsRatio*0.7*P.detail);   // code whitespace -> grain spacing
+  const chord = e.drone.freqs.length ? e.drone.freqs : [STATE.s.freq];
+  while(grainClock >= interval){
+    grainClock -= interval;
+    if(STATE.s.density>0.02){
+      const base   = chord[(Math.random()*chord.length)|0];
+      const oct    = Math.random() < (0.3 + (cell.digitD||0)*0.4*P.detail) ? 2 : 1;  // digits -> sparkle
+      const detune = 1 + (Math.random()-0.5)*(0.02 + STATE.s.grit*0.035)*(0.4+chaos); // punctuation -> grit
+      const gf  = base*oct*detune*(1 + STATE.s.micro*0.004);                          // exact hex -> micro-detune
+      const pos = (Math.random()<0.5?grainPos:sectionPos) + (Math.random()-0.5)*0.7*(0.3+chaos);
+      const pan = Math.max(-1,Math.min(1,(Math.random()*2-1)*0.9*(1+STATE.s.orn*0.3)));// attrs -> width
+      const sz  = STATE.s.grainSize*(0.7+Math.random()*0.7);
+      spawnGrain(e, now+0.02, gf, Math.max(0.04,sz), 0.38, pos, pan);
+      if(P.shimmer>0.02 && Math.random()<P.shimmer)             // octave-up shimmer grain -> reverb
+        spawnGrain(e, now+0.02, gf*2, Math.max(0.05,sz*1.2), 0.22, pos, pan*0.6, e.grain.shimmer);
+    }
+  }
+}
+
+/* ------------------------------ raf loop -------------------------------- */
+function loop(ts){
+  if(!STATE.playing) return;
+  const dt = lastT? Math.min(0.05,(ts-lastT)/1000) : 0.016;
+  lastT=ts;
+  advance(dt);
+  drawViz();
+  requestAnimationFrame(loop);
+}
+
+/* ------------------------------ visualizer ------------------------------ */
+const canvas=document.getElementById('viz'), cx=canvas.getContext('2d');
+let drops=[];
+function fitCanvas(){
+  const r=canvas.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
+  canvas.width=r.width*dpr; canvas.height=r.height*dpr; cx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize',fitCanvas);
+
+function seedDrops(){
+  drops=[]; const w=canvas.getBoundingClientRect().width;
+  const cols=Math.floor(w/64);
+  for(let i=0;i<cols;i++) drops.push({x:i*64+8,y:Math.random()*-300,i:Math.floor(Math.random()*STATE.cells.length)});
+}
+function drawViz(){
+  const r=canvas.getBoundingClientRect(), w=r.width, h=r.height;
+  cx.clearRect(0,0,w,h);
+  cx.fillStyle='rgba(9,23,52,0.30)'; cx.fillRect(0,0,w,h);
+
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--live-accent').trim()||'#D9A441';
+  const idx=Math.floor(STATE.pos);
+  cx.font='11px "IBM Plex Mono", monospace';
+
+  drops.forEach(d=>{
+    d.y += 0.6 + STATE.params.speed*0.18;
+    if(d.y>h+20){ d.y=-20; d.i=Math.floor(Math.random()*STATE.cells.length); }
+    const c=STATE.cells[d.i]; if(!c) return;
+    const col = c.color || 'rgba(150,195,235,0.45)';
+    cx.fillStyle = col;
+    cx.globalAlpha = 0.5;
+    cx.fillText('<'+c.tag.toLowerCase()+'>', d.x, d.y);
+    cx.globalAlpha=0.22;
+    cx.fillText(c.textLen?('·'.repeat(Math.min(8,Math.ceil(c.textLen/40)))):'', d.x, d.y+13);
+  });
+  cx.globalAlpha=1;
+
+  // playhead ribbon
+  const px = (STATE.pos/Math.max(1,STATE.cells.length))*w;
+  cx.fillStyle=accent; cx.globalAlpha=0.9; cx.fillRect(px-1,0,2,h);
+  cx.globalAlpha=0.10; cx.fillRect(px-22,0,44,h); cx.globalAlpha=1;
+
+  // little level/freq scope at the bottom
+  const fy=h-2, fr=STATE.s.freq;
+  cx.strokeStyle=accent; cx.globalAlpha=0.7; cx.beginPath();
+  for(let x=0;x<w;x+=2){const yy=fy-Math.sin(x/w*fr*0.06)*Math.min(18,STATE.s.density*40);
+    x===0?cx.moveTo(x,yy):cx.lineTo(x,yy);} cx.stroke(); cx.globalAlpha=1;
+
+  // clip/level meter (top-right), read from the post-limiter analyser
+  if(engine && engine.analyser){
+    const a=engine.analyser;
+    if(!meterBuf || meterBuf.length!==a.fftSize) meterBuf=new Uint8Array(a.fftSize);
+    a.getByteTimeDomainData(meterBuf);
+    let peak=0; for(let i=0;i<meterBuf.length;i++){ const v=Math.abs(meterBuf[i]-128)/128; if(v>peak)peak=v; }
+    meterLevel += (peak-meterLevel)*0.3;
+    const mw=70, mx=w-mw-12, my=12, mh=4;
+    cx.globalAlpha=0.85; cx.fillStyle='rgba(255,255,255,.14)'; cx.fillRect(mx,my,mw,mh);
+    const lv=Math.min(1,meterLevel);
+    cx.fillStyle = lv>0.92 ? '#E5704B' : accent;
+    cx.fillRect(mx,my,mw*lv,mh);
+    cx.globalAlpha=0.5; cx.font='9px "IBM Plex Mono", monospace'; cx.fillStyle=accent;
+    cx.textAlign='right'; cx.fillText('out', mx-6, my+mh); cx.textAlign='left';
+    cx.globalAlpha=1;
+  }
+}
+let meterBuf=null, meterLevel=0;
+
+/* ------------------------------ accent glow ----------------------------- */
+let accentRAF=null;
+function setAccent(hex){
+  document.documentElement.style.setProperty('--live-accent',hex);
+  const h=hex.replace('#',''); const full=h.length===3?h.split('').map(c=>c+c).join(''):h;
+  const r=parseInt(full.slice(0,2),16),g=parseInt(full.slice(2,4),16),b=parseInt(full.slice(4,6),16);
+  document.documentElement.style.setProperty('--live-accent-soft',`rgba(${r},${g},${b},.16)`);
+}
+
+/* -------------------------------- UI ------------------------------------ */
+const $=id=>document.getElementById(id);
+const srcEl=$('src'), readout=$('readout'), runBtn=$('runBtn'), statusEl=$('status'),
+      hudTag=$('hudTag'), hudInfo=$('hudInfo'), posReadout=$('posReadout'), vizEmpty=$('vizEmpty');
+
+function doParse(){
+  const src=srcEl.value.trim();
+  if(!src){ readout.textContent='paste a source first'; return false; }
+  const codeMode = STATE.mode==='code';
+  const {cells,depthMax,stats,meta}= codeMode ? parseCode(src) : parseSource(src);
+  if(!cells.length){ readout.textContent= codeMode?'no lines found':'no elements found'; return false; }
+  STATE.cells=cells; STATE.depthMax=depthMax; STATE.meta=meta; STATE.pos=0; lastCellIdx=-1;
+  const unit = codeMode?'lines':'nodes';
+  readout.innerHTML=`<b>${stats.nodes}</b> ${unit} · <b>${stats.colors}</b> colors · <b>${stats.text}</b> chars · depth <b>${stats.depth}</b>`;
+  vizEmpty.style.display='none';
+  document.getElementById('vizTitle').textContent = codeMode ? 'Waterfall · live code scrub' : 'Waterfall · live DOM scrub';
+  fitCanvas(); seedDrops(); drawViz();
+  return true;
+}
+
+$('loadBtn').addEventListener('click',doParse);
+$('mode').addEventListener('change',e=>{ STATE.mode=e.target.value; if(srcEl.value.trim()) doParse(); });
+
+$('presets').addEventListener('click',e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  document.querySelectorAll('#presets .chip').forEach(c=>c.classList.remove('active'));
+  b.classList.add('active');
+  STATE.mode = b.dataset.mode || 'dom';            // page presets are DOM; code sample is Raw code
+  $('mode').value = STATE.mode;
+  srcEl.value=PRESETS[b.dataset.preset]||''; doParse();
+});
+
+runBtn.addEventListener('click',async()=>{
+  if(!STATE.cells.length && !doParse()) return;
+  if(!STATE.playing){
+    if(!engine){ engine=buildEngine(); if(STATE.params.pedal) setPedal(engine,true); }
+    await engine.ctx.resume();
+    STATE.playing=true; lastT=0; grainClock=0;
+    runBtn.textContent='■ Stop'; runBtn.classList.add('on');
+    statusEl.classList.add('run'); statusEl.querySelector('.now').textContent='scrubbing';
+    requestAnimationFrame(loop);
+  } else {
+    STATE.playing=false;
+    runBtn.textContent='▶ Listen'; runBtn.classList.remove('on');
+    statusEl.classList.remove('run'); statusEl.querySelector('.now').textContent='idle';
+    // suspend the whole graph so the sustained drone bed stops cleanly (resumes on Listen)
+    if(engine){ engine.grain.bus.gain.setTargetAtTime(0,engine.ctx.currentTime,0.15);
+      setTimeout(()=>{ if(!STATE.playing && engine) engine.ctx.suspend(); }, 220); }
+  }
+});
+
+/* slider wiring + live value readouts */
+let reharmTimer=null;
+function requestReharm(){ clearTimeout(reharmTimer); reharmTimer=setTimeout(()=>{ STATE.reharm=true; },170); }
+function bind(id,key,fmt,scale=1,reharm=false){
+  const el=$(id), out=$('v'+id.charAt(0).toUpperCase()+id.slice(1));
+  const apply=()=>{ const raw=parseFloat(el.value);
+    STATE.params[key]= scale===1?raw: raw/100;
+    if(out) out.textContent=fmt(raw);
+    if(engine && key==='vol') engine.master.gain.setTargetAtTime(raw/100, engine.ctx.currentTime,0.05);
+    if(reharm) requestReharm();
+  };
+  el.addEventListener('input',apply); apply();
+}
+bind('speed','speed',v=>v.toFixed(1)+'/s',1);   // used directly as cells/sec
+bind('dens','dens',v=>v+'%',100);
+bind('filt','filt',v=>{const hz=600+v/100*16000; return hz>=1000?(hz/1000).toFixed(1)+'k':Math.round(hz);},100);
+bind('vol','vol',v=>v+'%',1);                    // master handled in apply() branch
+bind('chaos','chaos',v=>v+'%',100);
+bind('harm','harm',v=>v+'%',100);
+bind('blur','blur',v=>v+'%',100);
+bind('bleed','bleed',v=>v+'%',100);
+// drone & harmony
+bind('voices','voices',v=>v+'',1,true);
+bind('spread','spread',v=>v+'%',100,true);
+bind('drift','drift',v=>v+'%',100,true);
+bind('mix','mix',v=>v+'%',100);
+// space & timbre
+bind('register','register',v=>(v>0?'+':'')+v+' oct',1,true);
+bind('shimmer','shimmer',v=>v+'%',100);
+bind('air','air',v=>v+'%',100);
+bind('wash','wash',v=>v+'%',100);
+bind('space','space',v=>v+'%',100);
+bind('width','width',v=>v+'%',100,true);
+bind('detail','detail',v=>v+'%',100);
+
+function rebuildPedalIfOn(){ if(engine && STATE.params.pedal){ setPedal(engine,false); setPedal(engine,true); } }
+$('scale').addEventListener('change',e=>{ STATE.params.scale=e.target.value; STATE.reharm=true; });
+$('voicing').addEventListener('change',e=>{ STATE.params.voicing=e.target.value; STATE.reharm=true; });
+$('tonic').addEventListener('change',e=>{ STATE.params.tonic=e.target.value; STATE.reharm=true; rebuildPedalIfOn(); });
+
+// register also moves the pedal anchor when it's on
+$('register').addEventListener('change',rebuildPedalIfOn);
+
+// root pedal toggle
+$('pedal').addEventListener('click',()=>{
+  STATE.params.pedal=!STATE.params.pedal;
+  const b=$('pedal');
+  b.textContent=STATE.params.pedal?'on':'off';
+  b.classList.toggle('on',STATE.params.pedal);
+  b.setAttribute('aria-checked',STATE.params.pedal);
+  if(engine) setPedal(engine, STATE.params.pedal);
+});
+
+// depth -> complexity toggle
+$('depthHarm').addEventListener('click',()=>{
+  STATE.params.depthHarm=!STATE.params.depthHarm;
+  const b=$('depthHarm');
+  b.textContent=STATE.params.depthHarm?'on':'off';
+  b.classList.toggle('on',STATE.params.depthHarm);
+  b.setAttribute('aria-checked',STATE.params.depthHarm);
+  STATE.reharm=true;
+});
+
+/* atmosphere presets — recall a full setting in one tap (values are raw slider units) */
+const ATMOS = {
+  cathedral:{ speed:2.5,dens:50,filt:60,chaos:15,harm:72,blur:62,bleed:45,
+    voicing:'fifths',scale:'aeolian',voices:5,spread:50,drift:30,mix:42,
+    tonic:'G',register:-1,shimmer:50,air:22,wash:45,space:88,width:72,detail:45,pedal:true,depthHarm:false },
+  glass:{ speed:4,dens:66,filt:84,chaos:22,harm:60,blur:55,bleed:30,
+    voicing:'quartal',scale:'lydian',voices:4,spread:62,drift:48,mix:60,
+    tonic:'D',register:1,shimmer:72,air:10,wash:25,space:70,width:82,detail:70,pedal:false,depthHarm:true },
+  tape:{ speed:3,dens:46,filt:44,chaos:34,harm:66,blur:60,bleed:55,
+    voicing:'thirds',scale:'dorian',voices:3,spread:30,drift:70,mix:40,
+    tonic:'F',register:-1,shimmer:20,air:36,wash:70,space:62,width:52,detail:55,pedal:true,depthHarm:false },
+  tectonic:{ speed:2,dens:52,filt:38,chaos:42,harm:78,blur:64,bleed:60,
+    voicing:'cluster',scale:'wholetone',voices:6,spread:20,drift:82,mix:36,
+    tonic:'C',register:-2,shimmer:10,air:42,wash:60,space:72,width:60,detail:65,pedal:true,depthHarm:true },
+  spectral:{ speed:3,dens:60,filt:74,chaos:20,harm:70,blur:58,bleed:40,
+    voicing:'overtone',scale:'chromatic',voices:6,spread:42,drift:42,mix:55,
+    tonic:'G',register:0,shimmer:64,air:26,wash:30,space:86,width:80,detail:60,pedal:true,depthHarm:false }
+};
+const RANGE_KEYS=['speed','dens','filt','chaos','harm','blur','bleed','voices','spread','drift','mix','register','shimmer','air','wash','space','width','detail'];
+function applyPreset(p){
+  RANGE_KEYS.forEach(k=>{ if(k in p){ const el=$(k); el.value=p[k]; el.dispatchEvent(new Event('input')); }});
+  ['voicing','scale','tonic'].forEach(k=>{ if(k in p){ const el=$(k); el.value=p[k]; el.dispatchEvent(new Event('change')); }});
+  if('pedal' in p && p.pedal!==STATE.params.pedal) $('pedal').click();
+  if('depthHarm' in p && p.depthHarm!==STATE.params.depthHarm) $('depthHarm').click();
+  rebuildPedalIfOn();
+  STATE.reharm=true;
+}
+$('atmos').addEventListener('click',e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  document.querySelectorAll('#atmos .chip').forEach(c=>c.classList.remove('active'));
+  b.classList.add('active');
+  applyPreset(ATMOS[b.dataset.atmos]);
+});
+
+/* spacebar = play / stop (unless typing in the source box) */
+addEventListener('keydown',e=>{
+  if(e.code==='Space' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){
+    e.preventDefault(); runBtn.click();
+  }
+});
+
+/* boot */
+fitCanvas();
+window.addEventListener('load',()=>{ fitCanvas();
+  // preload the newsfeed so it's audible on first click
+  document.querySelector('.chip[data-preset="news"]').click();
+});
+</script>
+</body>
+</html>
